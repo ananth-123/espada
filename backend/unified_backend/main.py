@@ -116,16 +116,23 @@ class ComplianceRule:
 
 # Predictive Maintenance Functions
 def generate_suggestion(shap_values: np.ndarray) -> dict:
-    """Generate maintenance suggestion based on SHAP values"""
-    top_feature_index = np.argmax(np.abs(shap_values))
-    top_feature = FEATURE_NAMES[top_feature_index]
+    """Generate a personalized maintenance suggestion based on SHAP values."""
+    # Get indices sorted by absolute SHAP values in descending order
+    sorted_indices = np.argsort(-np.abs(shap_values))
     
-    return MAINTENANCE_SUGGESTIONS.get(top_feature, {
+    # Iterate over the features in order of importance
+    for idx in sorted_indices:
+        feature = FEATURE_NAMES[idx]
+        if feature in MAINTENANCE_SUGGESTIONS:
+            return MAINTENANCE_SUGGESTIONS[feature]
+    
+    # Fallback default suggestion if no matching feature is found
+    return {
         "severity": "Medium",
         "action": "General maintenance inspection recommended",
         "reason": "Multiple factors contributing to potential failure",
         "instructions": "Perform comprehensive system diagnostic"
-    })
+    }
 
 def add_time_series_features(df: pd.DataFrame, window: int = 5) -> pd.DataFrame:
     """Recreate time-series features from training"""
