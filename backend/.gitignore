@@ -1,0 +1,90 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+.venv
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.project
+.pydevproject
+.settings/
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
+*.db-journal
+chroma_db/
+model_cache/
+
+# Model files and data
+*.pkl
+*.h5
+*.pt
+*.onnx
+*.bin
+*.npy
+*.npz
+*.joblib
+*.model
+*.json
+!package.json
+!tsconfig.json
+
+# Temporary files
+*.bak
+*.tmp
+.DS_Store
+.coverage
+htmlcov/
+.pytest_cache/
+.hypothesis/
+
+# Documentation
+docs/_build/
+site/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Sensitive data
+*.xlsx
+*.xls
+*.csv
+!requirements.txt
+!sample_maintenance_data.csv
+!ai4i2020.csv
