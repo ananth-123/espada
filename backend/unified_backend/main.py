@@ -245,56 +245,85 @@ class ComplianceReport:
     @staticmethod
     def generate_consolidated_report(actions: List[MaintenanceAction], compliance_results: List[Dict]) -> str:
         """Generate a consolidated report in the exact format"""
-        report = f"""Nuclear Maintenance Compliance Report (Consolidated)
+        report = "Action ID\tCompliance Status\tDetails\n"
+        
+        for action, result in zip(actions, compliance_results):
+            details = f"""Nuclear Maintenance Compliance Report
 ===================================
 Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
-Summary of Maintenance Actions
-============================"""
+Maintenance Action Details
+-------------------------
+ID: {action.id}
+Component: {action.component}
+Proposed Action: {action.proposed_action}
+Description: {action.description}
 
-        for idx, (action, result) in enumerate(zip(actions, compliance_results), 1):
-            report += f"""
-Action {idx}:
-- ID: {action.id}
-- Component: {action.component}
-- Proposed Action: {action.proposed_action}
-- Overall Compliance Status: {'COMPLIANT' if result['overall_compliant'] else 'NON-COMPLIANT'}"""
+Compliance Analysis
+------------------
+Overall Compliance Status: {'COMPLIANT' if result['overall_compliant'] else 'NON-COMPLIANT'}
 
-        report += "\n\nDetailed Compliance Analysis\n==========================="
+Relevant Regulations and Compliance Details:"""
 
-        for idx, (action, result) in enumerate(zip(actions, compliance_results), 1):
-            report += f"\n\nAction {idx} Details:\n------------------"
-            if result.get('warning'):
-                report += f"\nWARNING: {result['warning']}"
-            
             if 'compliance_details' in result:
                 for detail in result['compliance_details']:
-                    report += f"""
-Rule: {detail['rule_id']}
+                    details += f"""
+Rule ID: {detail['rule_id']}
 Source: {detail['source']}
-Regulation Text: {detail['regulation_text']}
+Category: {detail.get('category', 'N/A')}
+Regulation: {detail['regulation_text']}
 Similarity Score: {detail['similarity_score']:.2f}
 Status: {'COMPLIANT' if detail['compliant'] else 'NON-COMPLIANT'}
 ---"""
 
-        report += "\n\nRecommendations\n==============="
-        for idx, (action, result) in enumerate(zip(actions, compliance_results), 1):
-            report += f"\n\nAction {idx} ({action.id}):"
+            details += "\nRecommendations\n--------------\n"
             if result['overall_compliant']:
-                report += "\n✓ The maintenance action complies with nuclear safety regulations."
+                details += "✓ The maintenance action complies with nuclear safety regulations."
             else:
-                report += """
-⚠ ATTENTION: This action requires revision to ensure compliance:
-  - Review and align with relevant nuclear safety standards
-  - Consult with nuclear safety officers
-  - Document all modifications and justifications"""
+                details += "ATTENTION: The proposed action may not fully comply with regulations. Please review the specific rules above and adjust the maintenance plan accordingly."
+
+            report += f"{action.id}\t{'Compliant' if result['overall_compliant'] else 'Non-Compliant'}\t{details}\n"
 
         return report
 
     @staticmethod
     def generate_report(action: MaintenanceAction, compliance_results: Dict) -> Dict:
         """Generate a structured compliance report for API response"""
-        report = {
+        details = f"""Nuclear Maintenance Compliance Report
+===================================
+Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Maintenance Action Details
+-------------------------
+ID: {action.id}
+Component: {action.component}
+Proposed Action: {action.proposed_action}
+Description: {action.description}
+
+Compliance Analysis
+------------------
+Overall Compliance Status: {'COMPLIANT' if compliance_results.get('overall_compliant', False) else 'NON-COMPLIANT'}
+
+Relevant Regulations and Compliance Details:"""
+
+        if 'compliance_details' in compliance_results:
+            for detail in compliance_results['compliance_details']:
+                details += f"""
+Rule ID: {detail['rule_id']}
+Source: {detail['source']}
+Category: {detail.get('category', 'N/A')}
+Regulation: {detail['regulation_text']}
+Similarity Score: {detail['similarity_score']:.2f}
+Status: {'COMPLIANT' if detail['compliant'] else 'NON-COMPLIANT'}
+---"""
+
+        details += "\nRecommendations\n--------------\n"
+        if compliance_results.get('overall_compliant', False):
+            details += "✓ The maintenance action complies with nuclear safety regulations."
+        else:
+            details += "ATTENTION: The proposed action may not fully comply with regulations. Please review the specific rules above and adjust the maintenance plan accordingly."
+
+        return {
             "timestamp": datetime.now().isoformat(),
             "action_details": {
                 "id": action.id,
@@ -304,33 +333,16 @@ Status: {'COMPLIANT' if detail['compliant'] else 'NON-COMPLIANT'}
             },
             "compliance_status": "COMPLIANT" if compliance_results.get('overall_compliant', False) else "NON-COMPLIANT",
             "warning": compliance_results.get('warning', None),
-            "details": [],
-            "recommendations": []
+            "details": details,
+            "recommendations": [
+                "✓ The maintenance action complies with nuclear safety regulations."
+            ] if compliance_results.get('overall_compliant', False) else [
+                "⚠ ATTENTION: This action requires revision to ensure compliance:",
+                "  - Review and align with relevant nuclear safety standards",
+                "  - Consult with nuclear safety officers",
+                "  - Document all modifications and justifications"
+            ]
         }
-
-        if 'compliance_details' in compliance_results:
-            for detail in compliance_results['compliance_details']:
-                report["details"].append({
-                    "rule_id": detail['rule_id'],
-                    "source": detail['source'],
-                    "regulation": detail['regulation_text'],
-                    "similarity_score": detail['similarity_score'],
-                    "status": "COMPLIANT" if detail['compliant'] else "NON-COMPLIANT"
-                })
-
-            if compliance_results.get('overall_compliant', False):
-                report["recommendations"].append(
-                    "✓ The maintenance action complies with nuclear safety regulations."
-                )
-            else:
-                report["recommendations"].extend([
-                    "⚠ ATTENTION: This action requires revision to ensure compliance:",
-                    "  - Review and align with relevant nuclear safety standards",
-                    "  - Consult with nuclear safety officers",
-                    "  - Document all modifications and justifications"
-                ])
-
-        return report
 
 class ComplianceChecker:
     def __init__(self, knowledge_base: NuclearKnowledgeBase):
@@ -376,23 +388,12 @@ class ComplianceChecker:
             else:
                 logger.warning("NRC regulations file not found at data/laws-governing-nrc.xlsx")
 
-            # Load additional safety guidelines if available
-            safety_guidelines_path = Path("data/nuclear_regulations.csv")
-            if safety_guidelines_path.exists():
-                logger.info("Loading additional safety guidelines...")
-                safety_df = pd.read_csv(safety_guidelines_path)
-                safety_df["source"] = "Additional Guidelines"
-                regulations_data.append(safety_df)
-                logger.info(f"Loaded {len(safety_df)} safety guidelines")
-
             # Combine all regulations
             if regulations_data:
                 combined_regulations = pd.concat(regulations_data, ignore_index=True)
-                # Remove duplicates and null values
                 combined_regulations = combined_regulations.dropna(subset=['regulation_text'])
                 combined_regulations = combined_regulations.drop_duplicates(subset=['regulation_text'])
                 
-                # Ingest data into knowledge base
                 self.knowledge_base.ingest_data(combined_regulations)
                 logger.info(f"Successfully loaded total of {len(combined_regulations)} regulations")
             else:
@@ -404,17 +405,93 @@ class ComplianceChecker:
     def check_compliance(self, action: MaintenanceAction) -> Dict:
         """Check compliance and generate report"""
         try:
-            # Get compliance results
-            results = self._check_compliance_rules(action)
+            # Create a comprehensive query combining component and action
+            query = f"""
+            Component: {action.component}
+            Action: {action.proposed_action}
+            Description: {action.description}
+            """
+            
+            relevant_rules = self.knowledge_base.fetch_relevant_rules(query)
+            
+            if not relevant_rules:
+                results = {
+                    "action_id": action.id,
+                    "overall_compliant": False,
+                    "compliance_details": [],
+                    "warning": "No matching regulations found. Please review against current NRC guidelines and safety standards."
+                }
+                return {
+                    **results,
+                    "report": self.report_generator.generate_report(action, results)
+                }
+            
+            # Encode the full action context
+            action_embedding = self.knowledge_base.embedding_model.encode(query)
+            
+            compliance_results = []
+            nrc_matches = []  # Track NRC guideline matches
+            nuclear_qa_matches = []  # Track NuclearQA matches
+            
+            for rule in relevant_rules:
+                similarity = cosine_similarity(
+                    [action_embedding], 
+                    [rule.embeddings]
+                )[0][0]
+                
+                result = {
+                    "rule_id": rule.id,
+                    "regulation_text": rule.regulation_text,
+                    "similarity_score": similarity,
+                    "compliant": similarity >= self.similarity_threshold,
+                    "source": rule.source,
+                    "category": rule.category
+                }
+                
+                compliance_results.append(result)
+                if rule.source == "NRC Guidelines":
+                    nrc_matches.append(result)
+                elif rule.source == "NuclearQA Reference":
+                    nuclear_qa_matches.append(result)
+            
+            # Sort by similarity score
+            compliance_results.sort(key=lambda x: x['similarity_score'], reverse=True)
+            
+            # Determine overall compliance with special attention to NRC guidelines
+            high_confidence_matches = [r for r in compliance_results if r['similarity_score'] > 0.8]
+            medium_confidence_matches = [r for r in compliance_results if 0.7 <= r['similarity_score'] <= 0.8]
+            
+            overall_compliant = any(r['compliant'] for r in high_confidence_matches)
+            warning = None
+            
+            # Special handling for different regulation sources
+            if not nrc_matches:
+                warning = "⚠ CRITICAL: No matching NRC guidelines found. Action requires immediate review against official NRC regulations."
+            elif not any(r['compliant'] for r in nrc_matches):
+                warning = "⚠ WARNING: Action may not comply with NRC guidelines. Please review against official regulations."
+            elif nuclear_qa_matches and not any(r['compliant'] for r in nuclear_qa_matches):
+                warning = "⚠ NOTICE: Action requires additional verification against nuclear safety best practices from NuclearQA reference."
+            elif not high_confidence_matches and medium_confidence_matches:
+                warning = "⚠ CAUTION: Found potential matching regulations but confidence level is moderate. Please review manually."
+            elif not high_confidence_matches and not medium_confidence_matches:
+                warning = "⚠ ALERT: Low confidence in regulation matches. Please consult with nuclear safety officers."
+            
+            results = {
+                "action_id": action.id,
+                "overall_compliant": overall_compliant,
+                "compliance_details": compliance_results,
+                "warning": warning
+            }
             
             # Generate report
             report = self.report_generator.generate_report(action, results)
             
-            # Combine results and report
+            # Return combined results
             return {
                 **results,
                 "report": report
             }
+            
         except Exception as e:
             logger.error(f"Error in compliance check: {str(e)}")
             return {
@@ -424,82 +501,6 @@ class ComplianceChecker:
                 "warning": f"Error processing compliance check: {str(e)}",
                 "report": None
             }
-
-    def _check_compliance_rules(self, action: MaintenanceAction) -> Dict:
-        """Internal method to check compliance against rules"""
-        # Create a comprehensive query combining component and action
-        query = f"""
-        Component: {action.component}
-        Action: {action.proposed_action}
-        Description: {action.description}
-        """
-        
-        relevant_rules = self.knowledge_base.fetch_relevant_rules(query)
-        
-        if not relevant_rules:
-            return {
-                "action_id": action.id,
-                "overall_compliant": False,
-                "compliance_details": [],
-                "warning": "No matching regulations found. Please review against current NRC guidelines and safety standards."
-            }
-        
-        # Encode the full action context
-        action_embedding = self.knowledge_base.embedding_model.encode(query)
-        
-        compliance_results = []
-        nrc_matches = []  # Track NRC guideline matches specifically
-        nuclear_qa_matches = []  # Track NuclearQA matches
-        
-        for rule in relevant_rules:
-            similarity = cosine_similarity(
-                [action_embedding], 
-                [rule.embeddings]
-            )[0][0]
-            
-            result = {
-                "rule_id": rule.id,
-                "regulation_text": rule.regulation_text,
-                "similarity_score": similarity,
-                "compliant": similarity >= self.similarity_threshold,
-                "source": rule.source,
-                "category": rule.category
-            }
-            
-            compliance_results.append(result)
-            if rule.source == "NRC Guidelines":
-                nrc_matches.append(result)
-            elif rule.source == "NuclearQA Reference":
-                nuclear_qa_matches.append(result)
-        
-        # Sort by similarity score
-        compliance_results.sort(key=lambda x: x['similarity_score'], reverse=True)
-        
-        # Determine overall compliance with special attention to NRC guidelines
-        high_confidence_matches = [r for r in compliance_results if r['similarity_score'] > 0.8]
-        medium_confidence_matches = [r for r in compliance_results if 0.7 <= r['similarity_score'] <= 0.8]
-        
-        overall_compliant = any(r['compliant'] for r in high_confidence_matches)
-        warning = None
-        
-        # Special handling for different regulation sources
-        if not nrc_matches:
-            warning = "⚠ CRITICAL: No matching NRC guidelines found. Action requires immediate review against official NRC regulations."
-        elif not any(r['compliant'] for r in nrc_matches):
-            warning = "⚠ WARNING: Action may not comply with NRC guidelines. Please review against official regulations."
-        elif nuclear_qa_matches and not any(r['compliant'] for r in nuclear_qa_matches):
-            warning = "⚠ NOTICE: Action requires additional verification against nuclear safety best practices from NuclearQA reference."
-        elif not high_confidence_matches and medium_confidence_matches:
-            warning = "⚠ CAUTION: Found potential matching regulations but confidence level is moderate. Please review manually."
-        elif not high_confidence_matches and not medium_confidence_matches:
-            warning = "⚠ ALERT: Low confidence in regulation matches. Please consult with nuclear safety officers."
-        
-        return {
-            "action_id": action.id,
-            "overall_compliant": overall_compliant,
-            "compliance_details": compliance_results,
-            "warning": warning
-        }
 
     def check_multiple_compliance(self, actions: List[MaintenanceAction]) -> List[Dict]:
         """Check compliance for multiple actions and generate consolidated report"""
@@ -606,9 +607,11 @@ async def predict_file(file: UploadFile = File(...)):
 @router.post("/check-compliance/", tags=["Compliance"])
 async def check_compliance(actions: List[MaintenanceActionInput]):
     """
-    Check compliance of maintenance actions against nuclear regulations
+    Check compliance of maintenance actions against nuclear regulations.
+    Returns both detailed compliance results and formatted reports.
     """
     try:
+        # Convert input to MaintenanceAction objects
         maintenance_actions = [
             MaintenanceAction(
                 id=action.id,
@@ -616,14 +619,61 @@ async def check_compliance(actions: List[MaintenanceActionInput]):
                 component=action.component,
                 proposed_action=action.proposed_action,
                 timestamp=action.timestamp
-            )
-            for action in actions
+            ) for action in actions
         ]
         
-        results = compliance_checker.check_multiple_compliance(maintenance_actions)
-        return results
+        # Check compliance and get results
+        compliance_results = compliance_checker.check_multiple_compliance(maintenance_actions)
+        
+        if not compliance_results:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate compliance results"
+            )
+
+        # Format response according to frontend expectations
+        formatted_results = []
+        for result in compliance_results:
+            formatted_result = {
+                "action_id": result["action_id"],
+                "overall_compliant": result["overall_compliant"],
+                "compliance_details": [
+                    {
+                        "rule_id": detail["rule_id"],
+                        "regulation_text": detail["regulation_text"],
+                        "similarity_score": detail["similarity_score"],
+                        "compliant": detail["compliant"],
+                        "source": detail["source"],
+                        "category": detail.get("category", "General")
+                    }
+                    for detail in result["compliance_details"]
+                ],
+                "warning": result.get("warning"),
+                "report": result.get("report"),
+                "consolidated_report": result.get("consolidated_report")
+            }
+            formatted_results.append(formatted_result)
+
+        # Add error handling for empty results
+        if not formatted_results:
+            raise HTTPException(
+                status_code=500,
+                detail="No compliance results were generated"
+            )
+
+        return formatted_results
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error in check-compliance endpoint: {str(e)}")
+        # Return a more detailed error response
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Failed to process compliance check",
+                "message": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
 
 @router.get("/health", tags=["System"])
 async def health_check():

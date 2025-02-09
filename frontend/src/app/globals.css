@@ -2,20 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Import AtkinsRéalis fonts */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
 
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Brand Colors */
+    --color-primary: #0063A3;
+    --color-primary-dark: #004B7A;
+    --color-primary-light: #3D8DBC;
+    --color-secondary: #00B2A9;
+    --color-secondary-dark: #008680;
+    --color-secondary-light: #33C5BE;
+    --color-accent: #FFB81C;
+    --color-accent-dark: #CC9316;
+    --color-accent-light: #FFCA4F;
+    
+    /* Text Colors */
+    --color-text-primary: #1A1A1A;
+    --color-text-secondary: #4D4D4D;
+    --color-text-tertiary: #666666;
+  }
+
+  /* Set default font family */
+  html {
+    font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Typography scale */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-medium tracking-tight;
+    color: var(--color-text-primary);
+  }
+
+  /* Body text */
+  body {
+    @apply antialiased;
+    color: var(--color-text-secondary);
+  }
+
+  /* Custom text color utilities */
+  .text-brand-primary {
+    color: var(--color-text-primary);
+  }
+
+  .text-brand-secondary {
+    color: var(--color-text-secondary);
+  }
+
+  .text-brand-tertiary {
+    color: var(--color-text-tertiary);
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+/* Custom component styles */
+@layer components {
+  .tremor-Card-root {
+    @apply font-roboto;
+  }
+
+  .tremor-Title-root {
+    @apply text-brand-primary font-medium;
+  }
+
+  .tremor-Text-root {
+    @apply text-brand-secondary;
+  }
+
+  .tremor-Metric-root {
+    @apply text-brand-primary font-medium;
+  }
 }
